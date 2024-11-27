@@ -17,6 +17,7 @@ include_directories(include)
 add_executable(tcpp
     main.cpp
     src/TunDevice.cpp
+    src/utils/Formatting.cpp
 )
 
 include(CTest)
