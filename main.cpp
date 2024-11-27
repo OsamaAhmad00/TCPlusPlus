@@ -1,4 +1,4 @@
-#include "examples/SimplePacketParser.hpp"
+#include "examples/SimpleUDPEchoServer.hpp"
 
 [[noreturn]] int main() {
     example();
