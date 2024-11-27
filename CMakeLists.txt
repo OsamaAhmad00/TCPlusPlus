@@ -12,7 +12,12 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address")
 
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
-add_executable(tcpp main.cpp)
+include_directories(include)
+
+add_executable(tcpp
+    main.cpp
+    src/TunDevice.cpp
+)
 
 include(CTest)
 add_subdirectory(external)
