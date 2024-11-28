@@ -11,6 +11,7 @@
 namespace tcpp::structs {
 
 struct UDP;
+struct TCP;
 
 struct IPv4 : Base<IPv4> {
     // _n = network byte order
@@ -35,6 +36,8 @@ struct IPv4 : Base<IPv4> {
 
     UDP& udp_payload() { assert(protocol == IPPROTOCOL_UDP); return extract<UDP>(payload_offset()); }
 
+    TCP& tcp_payload() { assert(protocol == IPPROTOCOL_TCP); return extract<TCP>(payload_offset()); }
+
     [[nodiscard]] std::string source_ip() const { return network_ip_to_string(source_addr_n); }
 
     [[nodiscard]] std::string dest_ip() const { return network_ip_to_string(dest_addr_n); }
@@ -46,6 +49,7 @@ struct IPv4 : Base<IPv4> {
     [[nodiscard]] constexpr size_t payload_size() const { return total_len() - payload_offset(); };
 
     constexpr static uint8_t IPPROTOCOL_UDP = 0x11;
+    constexpr static uint8_t IPPROTOCOL_TCP = 0x06;
 };
 
 }
