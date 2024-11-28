@@ -18,9 +18,13 @@ struct UDP : Base<UDP> {
 
     [[nodiscard]] uint16_t dest_port() const { return ntohs(dest_port_n); }
 
+    [[nodiscard]] uint16_t length() const { return ntohs(length_n); }
+
+    [[nodiscard]] uint16_t checksum() const { return ntohs(checksum_n); }
+
     [[nodiscard]] constexpr size_t payload_offset() const { return sizeof(*this); }
 
-    [[nodiscard]] constexpr size_t payload_size() const { return ntohs(length_n) - payload_offset(); }
+    [[nodiscard]] constexpr size_t payload_size() const { return length() - payload_offset(); }
 };
 
 }
