@@ -46,6 +46,10 @@ struct IPv4 : Base<IPv4> {
 
     void compute_and_set_checksum() { checksum_n = 0; checksum_n = checksum16_be(reinterpret_cast<uint16_t*>(this), payload_offset() / 2); }
 
+    void compute_and_set_udp_checksum();
+
+    bool has_valid_udp_checksum() const;
+
     [[nodiscard]] uint16_t checksum() const { return htons(checksum_n); }
 
     [[nodiscard]] std::string source_ip() const { return network_ip_to_string(source_addr_n); }

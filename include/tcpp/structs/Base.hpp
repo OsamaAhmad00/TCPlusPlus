@@ -1,6 +1,7 @@
 #pragma once
 
 #include <span>
+#include <tcpp/utils/Checksum.hpp>
 
 namespace tcpp::structs {
 
@@ -39,7 +40,7 @@ struct Base {
         using Derived = CopyConstness<Self, T>;
         using Bytes = CopyConstness<Self, uint8_t>;
         auto ptr = reinterpret_cast<Bytes*>(&self);
-        auto& derived = *reinterpret_cast<Derived*>(&self);
+        auto& derived = static_cast<Derived&>(self);
         auto begin = ptr + derived.payload_offset();
         auto end = begin + payload_size;
         return std::span { begin, end };
@@ -48,8 +49,18 @@ struct Base {
     template <typename Self>
     auto payload(this Self& self) requires PayloadHolderWithSizeInfo<T> {
         using Derived = CopyConstness<Self, T>;
-        auto& derived = *reinterpret_cast<Derived*>(&self);
+        auto& derived = static_cast<Derived&>(self);
         return self.payload(derived.payload_size());
+    }
+
+    Checksum16BE header_and_payload_checksum(size_t payload_size) const requires PayloadHolder<T> {
+        auto& derived = static_cast<const T&>(*this);
+        return checksum16_be(reinterpret_cast<const uint16_t*>(this), (derived.payload_offset() + payload_size) / 2);
+    }
+
+    Checksum16BE header_and_payload_checksum() const requires PayloadHolderWithSizeInfo<T> {
+        auto& derived = static_cast<const T&>(*this);
+        return header_and_payload_checksum(derived.payload_size());
     }
 };
 

@@ -4,20 +4,29 @@ namespace tcpp {
 
 static uint16_t reverse_bytes(const uint16_t x) { return static_cast<uint16_t>((x >> 8) + ((x & 0xFF) << 8)); }
 
-uint16_t checksum16_be(const uint16_t *data, const size_t size, uint16_t initial_value) {
-    uint32_t sum = initial_value;
+Checksum16BE& Checksum16BE::add(const uint16_t x) {
+    sum += reverse_bytes(x);
+    return *this;
+}
 
-    for (size_t i = 0; i < size; i++) {
-        sum += reverse_bytes(data[i]);
-    }
+Checksum16BE& Checksum16BE::add(const uint32_t x) {
+    return add(static_cast<uint16_t>(x >> 16)).add(static_cast<uint16_t>(x & 0xFFFF));
+}
 
+uint16_t Checksum16BE::get() const {
     // End-around carry will happen at most twice
-    sum = (sum & 0xFFFF) + (sum >> 16);
-    sum = (sum & 0xFFFF) + (sum >> 16);
+    uint16_t result = (sum & 0xFFFF) + (sum >> 16);
+    result = (result & 0xFFFF) + (result >> 16);
 
-    const uint16_t ones_complement = ~static_cast<uint16_t>(sum);
+    // Take one's complement then reverse back to big-endian
+    return reverse_bytes(~result);
+}
 
-    return reverse_bytes(ones_complement);
+Checksum16BE checksum16_be(const uint16_t *data, const size_t size, uint16_t initial_value) {
+    Checksum16BE checksum { initial_value };
+    for (size_t i = 0; i < size; i++)
+        checksum.add(data[i]);
+    return checksum;
 }
 
 }
