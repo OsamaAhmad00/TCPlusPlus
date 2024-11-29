@@ -14,10 +14,16 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 
 include_directories(include)
 
+set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+set(SOURCE_FILES
+    ${SOURCE_DIR}/TunDevice.cpp
+    ${SOURCE_DIR}/utils/Formatting.cpp
+)
+
 add_executable(tcpp
     main.cpp
-    src/TunDevice.cpp
-    src/utils/Formatting.cpp
+    ${SOURCE_FILES}
 )
 
 include(CTest)
