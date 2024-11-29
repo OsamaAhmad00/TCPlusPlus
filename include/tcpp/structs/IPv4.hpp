@@ -34,9 +34,11 @@ struct IPv4 : Base<IPv4> {
 
     // Options go here
 
-    UDP& udp_payload() { assert(protocol == IPPROTOCOL_UDP); return extract<UDP>(payload_offset()); }
+    template <typename Self>
+    auto& udp_payload(this Self& self) { assert(self.protocol == IPPROTOCOL_UDP); return self.template extract<UDP>(self.payload_offset()); }
 
-    TCP& tcp_payload() { assert(protocol == IPPROTOCOL_TCP); return extract<TCP>(payload_offset()); }
+    template <typename Self>
+    auto& tcp_payload(this Self& self) { assert(self.protocol == IPPROTOCOL_TCP); return self.template extract<TCP>(self.payload_offset()); }
 
     [[nodiscard]] std::string source_ip() const { return network_ip_to_string(source_addr_n); }
 

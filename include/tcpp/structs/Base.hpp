@@ -15,6 +15,9 @@ concept PayloadHolderWithSizeInfo = requires(T t) {
     { t.payload_size() } -> std::convertible_to<size_t>;
 };
 
+template <typename T, typename U>
+using CopyConstness = std::conditional_t<std::is_const_v<std::remove_reference_t<T>>, const U, U>;
+
 template <typename T>
 struct Base {
     template <typename U>
@@ -23,23 +26,30 @@ struct Base {
         return *reinterpret_cast<T*>(ptr);
     }
 
-    template <typename U>
-    U& extract(const size_t offset) {
-        auto self = reinterpret_cast<uint8_t*>(this);
-        return *reinterpret_cast<U*>(self + offset);
+    template <typename U, typename Self>
+    auto& extract(this Self& self, const size_t offset) {
+        using Bytes = CopyConstness<Self, uint8_t>;
+        using Result = CopyConstness<Self, U>;
+        auto ptr = reinterpret_cast<Bytes*>(&self);
+        return *reinterpret_cast<Result*>(ptr + offset);
     }
 
-    std::span<uint8_t> payload(const size_t payload_size) requires PayloadHolder<T> {
-        auto ptr = reinterpret_cast<uint8_t*>(this);
-        auto& self = *reinterpret_cast<T*>(this);
-        auto begin = ptr + self.payload_offset();
+    template <typename Self>
+    auto payload(this Self& self, const size_t payload_size) requires PayloadHolder<T> {
+        using Derived = CopyConstness<Self, T>;
+        using Bytes = CopyConstness<Self, uint8_t>;
+        auto ptr = reinterpret_cast<Bytes*>(&self);
+        auto& derived = *reinterpret_cast<Derived*>(&self);
+        auto begin = ptr + derived.payload_offset();
         auto end = begin + payload_size;
         return std::span { begin, end };
     }
 
-    std::span<uint8_t> payload() requires PayloadHolderWithSizeInfo<T> {
-        auto& self = *reinterpret_cast<T*>(this);
-        return payload(self.payload_size());
+    template <typename Self>
+    auto payload(this Self& self) requires PayloadHolderWithSizeInfo<T> {
+        using Derived = CopyConstness<Self, T>;
+        auto& derived = *reinterpret_cast<Derived*>(&self);
+        return self.payload(derived.payload_size());
     }
 };
 
