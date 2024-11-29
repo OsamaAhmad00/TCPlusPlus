@@ -20,13 +20,13 @@ namespace tcpp {
 size_t TunDevice::receive(std::span<uint8_t> buffer) const {
     const ssize_t n = read(fd, buffer.data(), buffer.size());
     if (n < 0) throw std::runtime_error("Reading from TUN device failed");
-    return n;
+    return static_cast<size_t>(n);
 }
 
 size_t TunDevice::send(std::span<const uint8_t> buffer) const {
     const ssize_t n = write(fd, buffer.data(), buffer.size());
     if (n < 0) throw std::runtime_error("Writing to TUN device failed");
-    return n;
+    return static_cast<size_t>(n);
 }
 
 void TunBuilder::allocate_tun() {
