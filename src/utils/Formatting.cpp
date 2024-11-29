@@ -12,6 +12,7 @@ std::string packet_info(const structs::IPv4& ip) {
     std::stringstream ss;
 
     ss << "From " << ip.source_ip() << " to " << ip.dest_ip() << '\n';
+    ss << "IP checksum: " << ip.checksum() << '\n';
 
     if (ip.protocol == structs::IPv4::IPPROTOCOL_TCP) {
         auto& tcp = ip.tcp_payload();
@@ -33,6 +34,7 @@ std::string packet_info(const structs::IPv4& ip) {
         auto& udp = ip.udp_payload();
         ss << "Protocol: UDP (" << +ip.protocol << ")\n";
         ss << "Ports " << udp.source_port() << " -> " << udp.dest_port() << '\n';
+        ss << "Checksum: " << udp.checksum() << '\n';
         ss << "Size: " << udp.payload_size() << '\n';
         ss << "Data:\n\"\n";
         for (auto r : udp.payload()) ss << r;
@@ -41,7 +43,6 @@ std::string packet_info(const structs::IPv4& ip) {
 
     return ss.str();
 }
-
 
 std::string network_ip_to_string(uint32_t ip) {
     std::string result;

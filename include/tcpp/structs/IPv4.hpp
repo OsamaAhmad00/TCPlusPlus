@@ -7,6 +7,7 @@
 
 #include <tcpp/structs/Base.hpp>
 #include <tcpp/utils/Formatting.hpp>
+#include <tcpp/utils/Checksum.hpp>
 
 namespace tcpp::structs {
 
@@ -39,6 +40,13 @@ struct IPv4 : Base<IPv4> {
 
     template <typename Self>
     auto& tcp_payload(this Self& self) { assert(self.protocol == IPPROTOCOL_TCP); return self.template extract<TCP>(self.payload_offset()); }
+
+    // Computing the checksum with the checksum field not zeroed should result in 0
+    bool has_valid_checksum() { return checksum16_be(reinterpret_cast<uint16_t*>(this), payload_offset() / 2) == 0; }
+
+    void compute_and_set_checksum() { checksum_n = 0; checksum_n = checksum16_be(reinterpret_cast<uint16_t*>(this), payload_offset() / 2); }
+
+    [[nodiscard]] uint16_t checksum() const { return htons(checksum_n); }
 
     [[nodiscard]] std::string source_ip() const { return network_ip_to_string(source_addr_n); }
 
