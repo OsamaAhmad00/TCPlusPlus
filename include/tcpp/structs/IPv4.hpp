@@ -50,6 +50,8 @@ struct IPv4 : Base<IPv4> {
 
     [[nodiscard]] constexpr size_t payload_size() const { return total_len() - payload_offset(); };
 
+    [[nodiscard]] std::string info() const { return packet_info(*this); }
+
     constexpr static uint8_t IPPROTOCOL_UDP = 0x11;
     constexpr static uint8_t IPPROTOCOL_TCP = 0x06;
 };
