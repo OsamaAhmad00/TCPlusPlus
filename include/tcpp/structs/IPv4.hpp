@@ -41,14 +41,18 @@ struct IPv4 : Base<IPv4> {
     template <typename Self>
     auto& tcp_payload(this Self& self) { assert(self.protocol == IPPROTOCOL_TCP); return self.template extract<TCP>(self.payload_offset()); }
 
-    // Computing the checksum with the checksum field not zeroed should result in 0
-    bool has_valid_checksum() { return checksum16_be(reinterpret_cast<uint16_t*>(this), payload_offset() / 2) == 0; }
-
     void compute_and_set_checksum() { checksum_n = 0; checksum_n = checksum16_be(reinterpret_cast<uint16_t*>(this), payload_offset() / 2); }
 
     void compute_and_set_udp_checksum();
 
-    bool has_valid_udp_checksum() const;
+    void compute_and_set_tcp_checksum();
+
+    // Computing the checksum with the checksum field not zeroed should result in 0
+    [[nodiscard]] bool has_valid_checksum() { return checksum16_be(reinterpret_cast<uint16_t*>(this), payload_offset() / 2) == 0; }
+
+    [[nodiscard]] bool has_valid_udp_checksum() const;
+
+    [[nodiscard]] bool has_valid_tcp_checksum() const;
 
     [[nodiscard]] uint16_t checksum() const { return htons(checksum_n); }
 
