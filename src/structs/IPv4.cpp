@@ -1,8 +1,10 @@
-#include <iostream>
-#include <ostream>
+#include <netinet/in.h>
+
 #include <tcpp/structs/IPv4.hpp>
 #include <tcpp/structs/UDP.hpp>
 #include <tcpp/structs/TCP.hpp>
+#include <tcpp/utils/Checksum.hpp>
+#include <tcpp/utils/Formatting.hpp>
 
 namespace tcpp::structs {
 
@@ -27,6 +29,11 @@ uint16_t tcp_checksum(const IPv4& ip) {
     return checksum_with_pseudo_header(ip, ip.tcp_payload());
 }
 
+void IPv4::compute_and_set_checksum() {
+    checksum_n = 0;
+    checksum_n = checksum16_be(reinterpret_cast<uint16_t*>(this), payload_offset() / 2);
+}
+
 void IPv4::compute_and_set_udp_checksum() {
     auto& udp = udp_payload();
     udp.checksum_n = 0;
@@ -39,12 +46,38 @@ void IPv4::compute_and_set_tcp_checksum() {
     tcp.checksum_n = tcp_checksum(*this);
 }
 
+// Computing the checksum with the checksum field not zeroed should result in 0
+
+bool IPv4::has_valid_checksum() const {
+    return checksum16_be(reinterpret_cast<const uint16_t*>(this), payload_offset() / 2) == 0;
+}
+
 bool IPv4::has_valid_udp_checksum() const {
     return udp_checksum(*this) == 0;
 }
 
 bool IPv4::has_valid_tcp_checksum() const {
     return tcp_checksum(*this) == 0;
+}
+
+uint16_t IPv4::checksum() const {
+    return htons(checksum_n);
+}
+
+std::string IPv4::source_ip() const {
+    return network_ip_to_string(source_addr_n);
+}
+
+std::string IPv4::dest_ip() const {
+    return network_ip_to_string(dest_addr_n);
+}
+
+uint16_t IPv4::total_len() const {
+    return htons(total_len_n);
+}
+
+std::string IPv4::info() const {
+    return packet_info(*this);
 }
 
 }
