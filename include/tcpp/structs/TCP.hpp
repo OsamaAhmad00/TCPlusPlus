@@ -57,6 +57,20 @@ struct TCP : Base<TCP> {
     [[nodiscard]] uint16_t urgent_ptr() const { return ntohs(urgent_ptr_n); }
 
     [[nodiscard]] constexpr size_t payload_offset() const { return data_offset * 4; }
+
+    void set_source_port(const uint16_t value) { source_port_n = htons(value); }
+
+    void set_dest_port(const uint16_t value) { dest_port_n = htons(value); }
+
+    void set_seq_num(const uint32_t value) { seq_num_n = htonl(value); }
+
+    void set_ack_num(const uint32_t value) { ack_num_n = htonl(value); }
+
+    void set_window_size(const uint16_t value) { window_size_n = htons(value); }
+
+    void set_checksum(const uint16_t value) { checksum_n = htons(value); }
+
+    void set_urgent_ptr(const uint16_t value) { urgent_ptr_n = htons(value); }
 };
 
 }

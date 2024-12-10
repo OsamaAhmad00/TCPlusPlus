@@ -45,6 +45,16 @@ struct IPv4 : Base<IPv4> {
 
     void compute_and_set_tcp_checksum();
 
+    void compute_and_set_ip_tcp_checksums();
+
+    void compute_and_set_ip_udp_checksums();
+
+    void set_source_ip(uint32_t value);
+
+    void set_dest_ip(uint32_t value);
+
+    void set_total_len(uint16_t value);
+
     [[nodiscard]] bool has_valid_checksum() const;
 
     [[nodiscard]] bool has_valid_udp_checksum() const;

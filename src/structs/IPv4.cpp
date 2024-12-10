@@ -46,6 +46,28 @@ void IPv4::compute_and_set_tcp_checksum() {
     tcp.checksum_n = tcp_checksum(*this);
 }
 
+void IPv4::compute_and_set_ip_tcp_checksums() {
+    compute_and_set_tcp_checksum();
+    compute_and_set_checksum();
+}
+
+void IPv4::compute_and_set_ip_udp_checksums() {
+    compute_and_set_udp_checksum();
+    compute_and_set_checksum();
+}
+
+void IPv4::set_source_ip(const uint32_t value) {
+    source_addr_n = htonl(value);
+}
+
+void IPv4::set_dest_ip(const uint32_t value) {
+    dest_addr_n = htonl(value);
+}
+
+void IPv4::set_total_len(const uint16_t value) {
+    total_len_n = htons(value);
+}
+
 // Computing the checksum with the checksum field not zeroed should result in 0
 
 bool IPv4::has_valid_checksum() const {
