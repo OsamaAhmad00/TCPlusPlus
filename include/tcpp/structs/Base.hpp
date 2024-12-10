@@ -55,7 +55,7 @@ struct Base {
 
     Checksum16BE header_and_payload_checksum(size_t payload_size) const requires PayloadHolder<T> {
         auto& derived = static_cast<const T&>(*this);
-        return checksum16_be(reinterpret_cast<const uint16_t*>(this), (derived.payload_offset() + payload_size) / 2);
+        return checksum16_be(reinterpret_cast<const uint8_t*>(this), derived.payload_offset() + payload_size);
     }
 
     Checksum16BE header_and_payload_checksum() const requires PayloadHolderWithSizeInfo<T> {

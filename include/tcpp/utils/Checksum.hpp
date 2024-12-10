@@ -20,4 +20,6 @@ struct Checksum16BE {
 
 Checksum16BE checksum16_be(const uint16_t* data, size_t size, uint16_t initial_value = 0);
 
+Checksum16BE checksum16_be(const uint8_t* data, size_t size, uint16_t initial_value = 0);
+
 }

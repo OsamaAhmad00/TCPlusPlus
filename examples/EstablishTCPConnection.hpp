@@ -46,7 +46,7 @@ struct TCB {
         tcp.set_seq_num(1);
         tcp.syn = false;
         uint8_t message[] = "Hello World!\n";
-        auto size = static_cast<uint16_t>(sizeof(message));  // Ignore the null-terminator
+        auto size = static_cast<uint16_t>(sizeof(message) - 1);  // Ignore the null-terminator
         auto data_offset = ip.total_len();  // This is an empty packet
         for (uint16_t i = 0; i < size; i++)
             buffer[data_offset + i] = message[i];

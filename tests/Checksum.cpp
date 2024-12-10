@@ -69,6 +69,72 @@ uint8_t tcp_packet[] = { 0x45, 0x0, 0x0, 0x3a, 0x8f, 0x85, 0x40, 0x0, 0x40, 0x6,
     0x0, 0x17, 0x68, 0x0, 0x0, 0x1, 0x1, 0x8, 0xa, 0xa5, 0xc9, 0x4b, 0x69, 0xa5, 0xc9, 0x36, 0x3b, 0x48, 0x65,
     0x6c, 0x6c, 0x6f, 0xa };
 
+/*
+ * Internet Protocol Version 4, Src: 10.0.0.2, Dst: 10.0.0.1
+ *     0100 .... = Version: 4
+ *     .... 0101 = Header Length: 20 bytes (5)
+ *     Differentiated Services Field: 0x00 (DSCP: CS0, ECN: Not-ECT)
+ *     Total Length: 73  <=====================================================  Odd packet size
+ *     Identification: 0xb3d5 (46037)
+ *     010. .... = Flags: 0x2, Don't fragment
+ *     ...0 0000 0000 0000 = Fragment Offset: 0
+ *     Time to Live: 64
+ *     Protocol: TCP (6)
+ *     Header Checksum: 0x72d7 [correct]
+ *     [Header checksum status: Good]
+ *     [Calculated Checksum: 0x72d7]
+ *     Source Address: 10.0.0.2
+ *     Destination Address: 10.0.0.1
+ *     [Stream index: 3]
+ * Transmission Control Protocol, Src Port: 4000, Dst Port: 52656, Seq: 1, Ack: 1, Len: 13
+ *     Source Port: 4000
+ *     Destination Port: 52656
+ *     [Stream index: 0]
+ *     [Conversation completeness: Complete, WITH_DATA (31)]
+ *     [TCP Segment Len: 13]
+ *     Sequence Number: 1    (relative sequence number)
+ *     Sequence Number (raw): 1
+ *     [Next Sequence Number: 14    (relative sequence number)]
+ *     Acknowledgment Number: 1    (relative ack number)
+ *     Acknowledgment number (raw): 2576583289
+ *     1010 .... = Header Length: 40 bytes (10)
+ *     Flags: 0x010 (ACK)
+ *     Window: 64240
+ *     [Calculated window size: 8222720]
+ *     [Window size scaling factor: 128]
+ *     Checksum: 0xc9b3 [correct]
+ *         [Calculated Checksum: 0xc9b3]
+ *     [Checksum Status: Good]
+ *     Urgent Pointer: 0
+ *     Options: (20 bytes), Maximum segment size, SACK permitted, Timestamps, No-Operation (NOP), Window scale
+ *         TCP Option - Maximum segment size: 1460 bytes
+ *             [Expert Info (Warning/Protocol): The non-SYN packet does contain a MSS option]
+ *             Kind: Maximum Segment Size (2)
+ *             Length: 4
+ *             MSS Value: 1460
+ *         TCP Option - SACK permitted
+ *             [Expert Info (Warning/Protocol): The non-SYN packet does contain a SACK PERM option]
+ *             Kind: SACK Permitted (4)
+ *             Length: 2
+ *         TCP Option - Timestamps: TSval 4071497537, TSecr 0
+ *             Kind: Time Stamp Option (8)
+ *             Length: 10
+ *             Timestamp value: 4071497537
+ *             Timestamp echo reply: 0
+ *         TCP Option - No-Operation (NOP)
+ *         TCP Option - Window scale: 7 (multiply by 128)
+ *     [Timestamps]
+ *     [SEQ/ACK analysis]
+ *     TCP payload (13 bytes)
+ * Data (13 bytes)
+ *     Data: 48656c6c6f20576f726c64210a ("Hello World!\n")
+ *     [Length: 13]
+ */
+uint8_t odd_size_tcp_packet[] = { 0x45, 0x0, 0x0, 0x49, 0xb3, 0xd5, 0x40, 0x0, 0x40, 0x6, 0x72, 0xd7, 0xa, 0x0, 0x0,
+    0x2, 0xa, 0x0, 0x0, 0x1, 0xf, 0xa0, 0xcd, 0xb0, 0x0, 0x0, 0x0, 0x1, 0x99, 0x93, 0x8a, 0x79, 0xa0, 0x10, 0xfa, 0xf0,
+    0xc9, 0xb3, 0x0, 0x0, 0x2, 0x4, 0x5, 0xb4, 0x4, 0x2, 0x8, 0xa, 0xf2, 0xae, 0x1f, 0x41, 0x0, 0x0, 0x0, 0x0, 0x1, 0x3,
+    0x3, 0x7, 0x48, 0x65, 0x6c, 0x6c, 0x6f, 0x20, 0x57, 0x6f, 0x72, 0x6c, 0x64, 0x21, 0xa };
+
 TEST(checksum, IPv4HeaderChecksum1) {
     auto& ip = tcpp::structs::IPv4::from_ptr(udp_packet);
     ASSERT_TRUE(ip.has_valid_checksum());
@@ -105,4 +171,14 @@ TEST(checksum, TCPHeaderChecksum) {
     ASSERT_EQ(old, 0x1768);
     ip.compute_and_set_tcp_checksum();
     ASSERT_EQ(tcp.checksum(), 0x1768);
+}
+
+TEST(checksum, OddSizeTCPHeaderChecksum) {
+    auto& ip = tcpp::structs::IPv4::from_ptr(odd_size_tcp_packet);
+    auto& tcp = ip.tcp_payload();
+    ASSERT_TRUE(ip.has_valid_tcp_checksum());
+    const auto old = tcp.checksum();
+    ASSERT_EQ(old, 0xc9b3);
+    ip.compute_and_set_tcp_checksum();
+    ASSERT_EQ(tcp.checksum(), 0xc9b3);
 }

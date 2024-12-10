@@ -1,3 +1,4 @@
+#include <cassert>
 #include <tcpp/utils/Checksum.hpp>
 
 namespace tcpp {
@@ -34,10 +35,27 @@ uint16_t Checksum16BE::get() const {
     return reverse_bytes(~result);
 }
 
-Checksum16BE checksum16_be(const uint16_t *data, const size_t size, uint16_t initial_value) {
+Checksum16BE checksum16_be(const uint16_t* data, const size_t size, uint16_t initial_value) {
     Checksum16BE checksum { initial_value };
     for (size_t i = 0; i < size; i++)
         checksum.add_be(data[i]);
+    return checksum;
+}
+
+Checksum16BE checksum16_be(const uint8_t* data, const size_t size, uint16_t initial_value) {
+    Checksum16BE checksum { initial_value };
+
+    if (size == 0) return checksum;
+
+    for (size_t i = 0; i < size - 1; i += 2) {
+        const auto value = static_cast<uint16_t>(data[i] << 8 | data[i + 1]);
+        checksum.add(value);
+    }
+
+    if (size & 1) {
+        checksum.add(static_cast<uint16_t>(data[size - 1] << 8));
+    }
+
     return checksum;
 }
 
