@@ -45,13 +45,39 @@ struct TCB {
         // Send message
         tcp.set_seq_num(1);
         tcp.syn = false;
-        // tcp.ack = false;
         uint8_t message[] = "Hello World!\n";
         auto size = static_cast<uint16_t>(sizeof(message));  // Ignore the null-terminator
         auto data_offset = ip.total_len();  // This is an empty packet
         for (uint16_t i = 0; i < size; i++)
             buffer[data_offset + i] = message[i];
         ip.set_total_len(ip.total_len() + size);
+
+        ip.compute_and_set_ip_tcp_checksums();
+        (void)tun.send(std::span { buffer, ip.total_len() });
+
+        // Wait for ack
+        // TODO Process an ack instead of just sleeping
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Send fin
+        auto old_total_len = data_offset;
+        ip.set_total_len(old_total_len);
+        tcp.set_seq_num(1 + size);
+        tcp.ack = false;
+        tcp.fin = true;
+
+        ip.compute_and_set_ip_tcp_checksums();
+        (void)tun.send(std::span { buffer, ip.total_len() });
+
+        // Wait for fin
+        // TODO Process a fin instead of just sleeping. This relies on
+        //  the client to finish the connection about before 3 seconds
+        std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+
+        // Send ack
+        tcp.set_ack_num(ack_num + 1);
+        tcp.ack = true;
+        tcp.fin = false;
 
         ip.compute_and_set_ip_tcp_checksums();
         (void)tun.send(std::span { buffer, ip.total_len() });
