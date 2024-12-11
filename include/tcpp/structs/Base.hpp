@@ -62,6 +62,28 @@ struct Base {
         auto& derived = static_cast<const T&>(*this);
         return header_and_payload_checksum(derived.payload_size());
     }
+
+    /*
+     * Ensure that there is enough space for this data in the buffer, because this function won't.
+     * Also, insure to update size-related fields because this function won't update them as well.
+     */
+    void set_payload(const std::span<const uint8_t> payload) requires PayloadHolder<T> {
+        auto& derived = static_cast<const T&>(*this);
+        auto offset = derived.payload_offset();
+        auto buffer = reinterpret_cast<uint8_t*>(this);
+        for (size_t i = 0; i < payload.size(); i++) {
+            buffer[offset + i] = payload[i];
+        }
+    }
+
+    /*
+     * Ensure that there is enough space for this data in the buffer, because this function won't.
+     * Also, insure to update size-related fields because this function won't update them as well.
+     */
+    void set_payload(const std::string& payload) requires PayloadHolder<T> {
+        const auto buffer = reinterpret_cast<const uint8_t*>(payload.c_str());
+        set_payload(std::span { buffer , payload.size() });
+    }
 };
 
 }
