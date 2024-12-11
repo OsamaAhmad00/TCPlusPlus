@@ -55,6 +55,10 @@ struct IPv4 : Base<IPv4> {
 
     void set_total_len(uint16_t value);
 
+    void set_tcp_payload(std::span<const uint8_t> payload);
+
+    void set_tcp_payload(const std::string& payload);
+
     [[nodiscard]] bool has_valid_checksum() const;
 
     [[nodiscard]] bool has_valid_udp_checksum() const;

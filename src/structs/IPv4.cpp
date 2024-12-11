@@ -68,6 +68,22 @@ void IPv4::set_total_len(const uint16_t value) {
     total_len_n = htons(value);
 }
 
+template <typename T>
+static void _set_tcp_payload(IPv4& ip, const T& payload) {
+    auto& tcp = ip.tcp_payload();
+    tcp.set_payload(payload);
+    const auto len = static_cast<uint16_t>(ip.payload_offset() + tcp.payload_offset() + payload.size());
+    ip.set_total_len(len);
+}
+
+void IPv4::set_tcp_payload(const std::span<const uint8_t> payload) {
+    _set_tcp_payload(*this, payload);
+}
+
+void IPv4::set_tcp_payload(const std::string& payload) {
+    _set_tcp_payload(*this, payload);
+}
+
 // Computing the checksum with the checksum field not zeroed should result in 0
 
 bool IPv4::has_valid_checksum() const {
