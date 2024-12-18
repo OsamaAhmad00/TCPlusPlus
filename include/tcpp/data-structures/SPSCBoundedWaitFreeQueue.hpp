@@ -2,27 +2,16 @@
 
 #include <atomic>
 #include <memory>
-#include <new>
 #include <optional>
+
+#include <tcpp/utils/Concepts.hpp>
 
 constexpr int CACHE_LINE_SIZE = 64;
 //constexpr int CACHE_LINE_SIZE = std::hardware_destructive_interference_size;
 
-constexpr bool is_power_of_2(size_t s) {
-    uint8_t count = 0;
-    while (s > 0) {
-        count += s & 1;
-        s >>= 1;
-    }
-    return count == 1;
-}
-
-template <size_t S>
-concept PowerOfTwo = is_power_of_2(S);
-
 template <typename T, size_t capacity, typename Alloc = std::allocator<T>>
 requires PowerOfTwo<capacity>
-class SPSCBoundedWaitFreeQueue : private Alloc {
+class SPSCBoundedWaitFreeQueue : protected Alloc {
 
 public:
 
@@ -47,7 +36,7 @@ public:
         auto pop_val = pop_ptr.load(std::memory_order::acquire);
         if (!can_pop(pop_val)) return std::nullopt;
         auto ptr = element_ptr(pop_val);
-        std::optional<value_type> result = *ptr;
+        std::optional<value_type> result = std::move(*ptr);
         allocator_traits::destroy(*this, ptr);
         pop_ptr.store(pop_val + 1, std::memory_order::release);
         return result;
@@ -55,14 +44,14 @@ public:
 
     ~SPSCBoundedWaitFreeQueue() {
         // TODO relaxed then acquire?
-        int pop_index = pop_ptr.load(std::memory_order::relaxed);
-        int push_index = push_ptr.load(std::memory_order::acquire);
-        for (int i = pop_index; i < push_index; i++)
+        size_type pop_index = pop_ptr.load(std::memory_order::relaxed);
+        size_type push_index = push_ptr.load(std::memory_order::acquire);
+        for (size_type i = pop_index; i < push_index; i++)
             allocator_traits::destroy(*this, element_ptr(i));
         allocator_traits::deallocate(*this, buffer, capacity);
     }
 
-private:
+protected:
 
     bool can_push(size_type push_ptr_) {
         if (is_full(push_ptr_, cached_pop_ptr)) {
@@ -96,9 +85,9 @@ private:
     value_type* buffer = nullptr;
 
     // The push and pop pointers keep increasing forever. This assumes that
-    //  the system restarts and they'll begin at 0 again soon before they
-    //  overflow. Given that they're are 64-bits, it's very unlikely that
-    //  any of them will overflow. This is done to distinguish between the
+    //  the system restarts, and they'll begin at 0 again soon before they
+    //  overflow. Given that they're 64-bits, it's very unlikely that any
+    //  of them will overflow. This is done to distinguish between the
     //  empty and the full case with just a simple subtraction.
 
     // Loaded and stored by the push thread, loaded only by the pop thread
