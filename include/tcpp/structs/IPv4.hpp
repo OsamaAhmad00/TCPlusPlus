@@ -6,6 +6,7 @@
 #include <string>
 
 #include <tcpp/structs/Base.hpp>
+#include <tcpp/utils/Connections.hpp>
 
 namespace tcpp::structs {
 
@@ -72,6 +73,8 @@ struct IPv4 : Base<IPv4> {
     [[nodiscard]] std::string dest_ip() const;
 
     [[nodiscard]] uint16_t total_len() const;
+
+    [[nodiscard]] ConnectionID connection_id() const;
 
     [[nodiscard]] constexpr size_t payload_offset() const { return ihl * 4; }
 
