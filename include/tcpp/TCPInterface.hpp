@@ -7,6 +7,7 @@
 #include <tcpp/TunDevice.hpp>
 #include <tcpp/TCPListener.hpp>
 #include <tcpp/utils/Connections.hpp>
+#include <tcpp/data-structures/ConcurrentMap.hpp>
 
 namespace tcpp {
 
@@ -27,7 +28,7 @@ public:
         auto[it, inserted] = port_listeners.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(port),
-            std::forward_as_tuple(port, send_queue, connection_queues)
+            std::forward_as_tuple(port, send_queue, connection_queues, port_listeners)
         );
         assert(inserted);
         return it->second;
@@ -35,17 +36,11 @@ public:
 
 private:
 
-    template <size_t ConnectionBufferSize_>
-    class TCPConnection;
-
-    void close(const Port port) {
-        port_listeners.erase(port);
-    }
-
     void listener(std::stop_token token) {
         while (!token.stop_requested()) {
             auto buffer = std::make_unique<ByteArr>();
             // TODO get rid of latency incurred by copying
+            // TODO if a stop is requested, this call should return. Change blocking somehow.
             (void)interface.receive(*buffer);
 
             auto& ip = structs::IPv4::from_ptr(buffer->data());
@@ -83,6 +78,7 @@ private:
             // TODO don't spin
             auto packet = send_queue.pop();
             while (!packet.has_value()) {
+                if (token.stop_requested()) return;
                 packet = send_queue.pop();
             }
             auto& buffer = *packet.value();
@@ -97,7 +93,7 @@ private:
     // TODO this needs to change
     MPSCQueue<ConnectionBufferSize> send_queue;
     // TODO have different argument for queue capacity
-    std::map<Port, TCPListener<ConnectionBufferSize>> port_listeners;
+    ConcurrentMap<Port, TCPListener<ConnectionBufferSize>> port_listeners;
     std::jthread listen_thread;
     std::jthread send_thread;
 };

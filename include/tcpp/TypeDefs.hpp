@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 using Port = uint16_t;
 using IpAddress = uint32_t;
 
