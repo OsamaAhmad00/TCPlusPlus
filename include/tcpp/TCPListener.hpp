@@ -16,7 +16,7 @@ class TCPListener {
     requires PowerOfTwo<ConnectionBufferSize>
     friend class TCPInterface;
 
-    const Port port;
+    const Endpoint endpoint;
     MPSCQueue<ConnectionQueueCapacity>& send_queue;
     ConnectionQueues<ConnectionQueueCapacity>& connection_queues;
 
@@ -24,17 +24,17 @@ class TCPListener {
     SPSCBoundedWaitFreeQueue<ConnectionID, 64> pending_connections;
 
     // TODO specify the size specifically
-    ConcurrentMap<Port, TCPListener>& listeners;
+    ConcurrentMap<Endpoint, TCPListener>& listeners;
 
 public:
 
     // TODO make it private
     TCPListener(
-        const Port port,
+        const Endpoint endpoint,
         MPSCQueue<ConnectionQueueCapacity>& send_queue,
         ConnectionQueues<ConnectionQueueCapacity>& connection_queues,
-        ConcurrentMap<Port, TCPListener>& listeners
-    ) : port(port),
+        ConcurrentMap<Endpoint, TCPListener>& listeners
+    ) : endpoint(endpoint),
         send_queue(send_queue),
         connection_queues(connection_queues),
         listeners(listeners)
@@ -52,7 +52,7 @@ public:
         container.emplace_back(id.value(), connection_queues, receive_queue, send_queue);
     }
 
-    void close() { listeners.erase(port); }
+    void close() { listeners.erase(endpoint); }
 };
 
 };
