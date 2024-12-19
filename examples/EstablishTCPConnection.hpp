@@ -2,6 +2,9 @@
 
 #include <deque>
 #include <tcpp/TCPInterface.hpp>
+#include <tcpp/utils/IPv4.hpp>
+
+using tcpp::operator ""_nip;
 
 void example() {
     auto tun = tcpp::TunBuilder("TunDevice0")
@@ -10,7 +13,7 @@ void example() {
         .build();
 
     auto tcp = tcpp::TCPInterface { (std::move(tun)) };
-    auto& listener = tcp.bind(4000);
+    auto& listener = tcp.bind({ "10.0.0.5"_nip, 4000 });
     // TODO Remove the hardcoded number
     std::deque<tcpp::TCPConnection<1 << 20>> connections;
     int allowed_connections = 5;

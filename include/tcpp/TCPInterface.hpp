@@ -24,11 +24,11 @@ public:
     { }
 
     // TODO accept the size argument as a template parameter when the map is replaced
-    TCPListener<ConnectionBufferSize>& bind(const Port port) {
+    TCPListener<ConnectionBufferSize>& bind(const Endpoint endpoint) {
         auto[it, inserted] = port_listeners.emplace(
             std::piecewise_construct,
-            std::forward_as_tuple(port),
-            std::forward_as_tuple(port, send_queue, connection_queues, port_listeners)
+            std::forward_as_tuple(endpoint),
+            std::forward_as_tuple(endpoint, send_queue, connection_queues, port_listeners)
         );
         assert(inserted);
         return it->second;
@@ -50,7 +50,9 @@ private:
 
             auto& tcp = ip.tcp_payload();
             Port port = tcp.dest_port();
-            if (!port_listeners.contains(port)) {
+            IpAddress address = ip.dest_addr_n;
+            Endpoint endpoint { address, port };
+            if (!port_listeners.contains(endpoint)) {
                 continue;
             }
 
@@ -60,7 +62,7 @@ private:
                 // TODO Change this...
                 // TODO have the size be customizable
                 connection_queues.create_connection_queue(id);
-                auto it = port_listeners.find(port);
+                auto it = port_listeners.find(endpoint);
                 assert(it != port_listeners.end());
                 it->second.pending_connections.push(id);
             }
@@ -93,7 +95,7 @@ private:
     // TODO this needs to change
     MPSCQueue<ConnectionBufferSize> send_queue;
     // TODO have different argument for queue capacity
-    ConcurrentMap<Port, TCPListener<ConnectionBufferSize>> port_listeners;
+    ConcurrentMap<Endpoint, TCPListener<ConnectionBufferSize>> port_listeners;
     std::jthread listen_thread;
     std::jthread send_thread;
 };

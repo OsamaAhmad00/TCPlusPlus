@@ -1,8 +1,9 @@
 #include <sstream>
-#include <tcpp/utils/Formatting.hpp>
+#include <tcpp/utils/IPv4.hpp>
 #include <tcpp/structs/IPv4.hpp>
 #include <tcpp/structs/TCP.hpp>
 #include <tcpp/structs/UDP.hpp>
+#include <arpa/inet.h>
 
 namespace tcpp {
 
@@ -57,6 +58,20 @@ std::string network_ip_to_string(uint32_t ip) {
     result.pop_back();
 
     return result;
+}
+
+IpAddress string_to_network_ip(const char* ip) {
+    in_addr ip_addr;
+
+    if (inet_pton(AF_INET, ip, &ip_addr) != 1)
+        throw std::invalid_argument("Invalid IP address");
+
+    return ip_addr.s_addr;
+}
+
+IpAddress operator""_nip(const char* ip, size_t size) {
+    (void)size;
+    return string_to_network_ip(ip);
 }
 
 }

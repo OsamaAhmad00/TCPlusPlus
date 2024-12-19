@@ -21,6 +21,16 @@ struct ConnectionID {
     }
 };
 
+struct Endpoint {
+    IpAddress ip = 0xFFFFFFFF;
+    Port port = 0xFFFF;
+
+    operator uint64_t() const {
+        return static_cast<uint64_t>(ip) << 16 |
+               static_cast<uint64_t>(port);
+    }
+};
+
 template <size_t QueueCapacity>
 class ConnectionQueues {
     // TODO get rid of the mutex
