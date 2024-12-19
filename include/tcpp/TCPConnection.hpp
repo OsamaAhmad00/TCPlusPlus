@@ -70,8 +70,11 @@ class TCPConnection {
         tcp.set_seq_num(send.nxt);
         tcp.set_ack_num(receive.nxt);
         tcp.set_window_size(send.wnd);
-        std::swap(ip.source_addr_n, ip.dest_addr_n);
-        std::swap(tcp.source_port_n, tcp.dest_port_n);
+        if (!swapped) {
+            swapped = true;
+            std::swap(ip.source_addr_n, ip.dest_addr_n);
+            std::swap(tcp.source_port_n, tcp.dest_port_n);
+        }
         ip.compute_and_set_ip_tcp_checksums();
         auto buffer = new std::array<uint8_t, 2048>;  // TODO remove this, specifically the size
         std::copy_n(reinterpret_cast<uint8_t*>(&ip), ip.total_len(), buffer->data());
@@ -124,9 +127,10 @@ class TCPConnection {
         } else if (state == State::WaitingForDataAck) {
             // Send fin
             ip.set_tcp_payload("");
-            tcp.ack = true;
+            bool fin = tcp.fin;
             tcp.fin = true;
             send_packet(ip);
+            tcp.fin = fin;
             state = State::WaitingForFinAck;
         } else if (state == State::WaitingForFinAck) {
             state = State::Closed;
@@ -141,19 +145,23 @@ class TCPConnection {
     }
 
     void process_packet(structs::IPv4& ip) {
+        auto& tcp = ip.tcp_payload();
+        // TODO perform the actual checks
+        if (tcp.ack == true && (tcp.ack_num() < send.nxt || tcp.seq_num() < receive.nxt)) {
+            return;
+        }
+
         if (state == State::New) {
             return process_new(ip);
         }
 
-        auto& tcp = ip.tcp_payload();
         receive.nxt += tcp.syn | tcp.fin;
+
         if (tcp.ack == true) {
-            if (tcp.ack_num() < send.nxt || tcp.seq_num() < receive.nxt) {
-                return;
-            }
             process_ack(ip);
         }
-        if (tcp.fin) {
+
+        if (tcp.fin == true) {
             process_fin(ip);
         }
     }
@@ -163,6 +171,7 @@ class TCPConnection {
             // TODO stop spinning
             auto packet = receive_queue.pop();
             if (packet.has_value()) {
+                swapped = false;
                 process_packet(structs::IPv4::from_ptr(packet.value()->data()));
             }
         }
@@ -182,6 +191,9 @@ class TCPConnection {
     SPSCQueue<ConnectionBufferSize>& receive_queue;
     MPSCQueue<ConnectionBufferSize>& send_queue;
     std::jthread packet_processor;
+
+    // TODO delete this
+    bool swapped = false;
 
 public:
 
