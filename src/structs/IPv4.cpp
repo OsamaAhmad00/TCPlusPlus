@@ -4,7 +4,7 @@
 #include <tcpp/structs/UDP.hpp>
 #include <tcpp/structs/TCP.hpp>
 #include <tcpp/utils/Checksum.hpp>
-#include <tcpp/utils/Formatting.hpp>
+#include <tcpp/utils/IPv4.hpp>
 
 namespace tcpp::structs {
 

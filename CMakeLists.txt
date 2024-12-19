@@ -19,7 +19,7 @@ set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(SOURCE_FILES
     ${SOURCE_DIR}/TunDevice.cpp
     ${SOURCE_DIR}/structs/IPv4.cpp
-    ${SOURCE_DIR}/utils/Formatting.cpp
+    ${SOURCE_DIR}/utils/IPv4.cpp
     ${SOURCE_DIR}/utils/Checksum.cpp
 )
 
