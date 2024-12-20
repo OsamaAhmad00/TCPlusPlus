@@ -8,6 +8,7 @@
 #include <tcpp/TCPListener.hpp>
 #include <tcpp/utils/Connections.hpp>
 #include <tcpp/data-structures/ConcurrentMap.hpp>
+#include <tcpp/allocators/ReusableSlabAllocator.hpp>
 
 namespace tcpp {
 
@@ -37,13 +38,14 @@ public:
 private:
 
     void listener(std::stop_token token) {
+        ReusableAllocator allocator;
         while (!token.stop_requested()) {
-            auto buffer = std::make_unique<ByteArr>();
+            auto buffer = allocator.allocate();
             // TODO get rid of latency incurred by copying
             // TODO if a stop is requested, this call should return. Change blocking somehow.
-            (void)interface.receive(*buffer);
+            (void)interface.receive({ buffer, PacketBufferSize });
 
-            auto& ip = structs::IPv4::from_ptr(buffer->data());
+            auto& ip = structs::IPv4::from_ptr(buffer);
             if (ip.version != 4 || ip.protocol != structs::IPv4::IPPROTOCOL_TCP) {
                 continue;
             }
@@ -70,12 +72,13 @@ private:
             // TODO Change this...
             const auto it = connection_queues.find(id);
             if (it != connection_queues.end()) {
-                it->second.push(std::move(buffer));
+                it->second.push(buffer);
             }
         }
     }
 
     void sender(std::stop_token token) {
+        ReusableAllocator allocator;
         while (!token.stop_requested()) {
             // TODO don't spin
             auto packet = send_queue.pop();
@@ -83,9 +86,10 @@ private:
                 if (token.stop_requested()) return;
                 packet = send_queue.pop();
             }
-            auto& buffer = *packet.value();
-            auto& ip = structs::IPv4::from_ptr(buffer.data());
-            (void)interface.send({ buffer.data(), ip.total_len() });
+            auto buffer = packet.value();
+            auto& ip = structs::IPv4::from_ptr(buffer);
+            (void)interface.send({ buffer, ip.total_len() });
+            allocator.deallocate(buffer);
         }
     }
 
@@ -93,7 +97,7 @@ private:
     // TODO have different argument for queue capacity
     ConnectionQueues<ConnectionBufferSize> connection_queues;
     // TODO this needs to change
-    MPSCQueue<ConnectionBufferSize> send_queue;
+    MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize> send_queue;
     // TODO have different argument for queue capacity
     ConcurrentMap<Endpoint, TCPListener<ConnectionBufferSize>> port_listeners;
     std::jthread listen_thread;

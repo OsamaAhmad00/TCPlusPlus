@@ -8,6 +8,8 @@ template <typename T, size_t Capacity, typename Alloc = std::allocator<T>>
 requires PowerOfTwo<Capacity>
 class MPSCBoundedQueue : public SPSCBoundedWaitFreeQueue<T, Capacity, Alloc> {
 
+protected:
+
     std::mutex m;
 
 public:
