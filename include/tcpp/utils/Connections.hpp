@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include <tcpp/TypeDefs.hpp>
+#include <tcpp/data-structures/SPSCBoundedWaitFreeQueue.hpp>
 
 namespace tcpp {
 
@@ -36,7 +37,7 @@ class ConnectionQueues {
     // TODO get rid of the mutex
     std::mutex mutex;
     // TODO change std::map, but make sure you have stable references
-    std::map<ConnectionID, SPSCQueue<QueueCapacity>> queues;
+    std::map<ConnectionID, SPSCBoundedWaitFreeQueue<PacketBuffer, QueueCapacity>> queues;
 
 public:
 

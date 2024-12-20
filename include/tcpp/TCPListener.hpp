@@ -17,7 +17,7 @@ class TCPListener {
     friend class TCPInterface;
 
     const Endpoint endpoint;
-    MPSCQueue<ConnectionQueueCapacity>& send_queue;
+    MPSCBoundedQueue<PacketBuffer, ConnectionQueueCapacity>& send_queue;
     ConnectionQueues<ConnectionQueueCapacity>& connection_queues;
 
     // TODO change this
@@ -31,7 +31,7 @@ public:
     // TODO make it private
     TCPListener(
         const Endpoint endpoint,
-        MPSCQueue<ConnectionQueueCapacity>& send_queue,
+        MPSCBoundedQueue<PacketBuffer, ConnectionQueueCapacity>& send_queue,
         ConnectionQueues<ConnectionQueueCapacity>& connection_queues,
         ConcurrentMap<Endpoint, TCPListener>& listeners
     ) : endpoint(endpoint),

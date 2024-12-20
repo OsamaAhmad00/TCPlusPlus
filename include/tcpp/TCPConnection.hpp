@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <tcpp/structs/IPv4.hpp>
 #include <tcpp/structs/TCP.hpp>
+#include <tcpp/data-structures/MPSCBoundedQueue.hpp>
+#include <tcpp/allocators/ReusableSlabAllocator.hpp>
 
 namespace tcpp {
 
@@ -76,8 +78,9 @@ class TCPConnection {
             std::swap(tcp.source_port_n, tcp.dest_port_n);
         }
         ip.compute_and_set_ip_tcp_checksums();
-        auto buffer = new std::array<uint8_t, 2048>;  // TODO remove this, specifically the size
-        std::copy_n(reinterpret_cast<uint8_t*>(&ip), ip.total_len(), buffer->data());
+        ReusableAllocator alloc;
+        auto buffer = alloc.allocate();
+        std::copy_n(reinterpret_cast<uint8_t*>(&ip), ip.total_len(), buffer);
         send_queue.push(buffer);
         const auto seq_increase =
             ip.total_len() - ip.payload_offset() - tcp.payload_offset() +  // TCP payload size
@@ -167,12 +170,15 @@ class TCPConnection {
     }
 
     void handler(std::stop_token token) {
+        ReusableAllocator alloc;
         while (!token.stop_requested() && !connection_closed) {
             // TODO stop spinning
             auto packet = receive_queue.pop();
             if (packet.has_value()) {
                 swapped = false;
-                process_packet(structs::IPv4::from_ptr(packet.value()->data()));
+                process_packet(structs::IPv4::from_ptr(packet.value()));
+                // TODO don't deallocate and don't copy when sending
+                alloc.deallocate(packet.value());
             }
         }
         connection_queues.remove_connection_queue(id);
@@ -188,8 +194,8 @@ class TCPConnection {
     ConnectionID id;
     // TODO have a separate arg for the queue capacity
     ConnectionQueues<ConnectionBufferSize>& connection_queues;
-    SPSCQueue<ConnectionBufferSize>& receive_queue;
-    MPSCQueue<ConnectionBufferSize>& send_queue;
+    SPSCBoundedWaitFreeQueue<PacketBuffer, ConnectionBufferSize>& receive_queue;
+    MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize>& send_queue;
     std::jthread packet_processor;
 
     // TODO delete this
@@ -205,8 +211,8 @@ public:
     explicit TCPConnection(
         const ConnectionID id,
         ConnectionQueues<ConnectionBufferSize>& connection_queues,
-        SPSCQueue<ConnectionBufferSize>& receive_queue,
-        MPSCQueue<ConnectionBufferSize>& send_queue
+        SPSCBoundedWaitFreeQueue<PacketBuffer, ConnectionBufferSize>& receive_queue,
+        MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize>& send_queue
     ) : id(id),
         connection_queues(connection_queues),
         receive_queue(receive_queue),

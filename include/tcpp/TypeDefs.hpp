@@ -1,28 +1,24 @@
 #pragma once
 
 #include <cstdint>
+#include <tcpp/utils/Concepts.hpp>
+
+namespace tcpp {
 
 using Port = uint16_t;
 using IpAddress = uint32_t;
 
+template <typename T, size_t SlabSize, size_t SlabsCount>
+requires PowerOfTwo<SlabsCount>
+class ReusableSlabSingletonAllocator;
 
-// TODO remove these --------
-#include <memory>
 
-#include <tcpp/data-structures/MPSCBoundedQueue.hpp>
-#include <tcpp/utils/Concepts.hpp>
+constexpr int PacketBufferSize = 2048;
 
-template <typename T, size_t Capacity, typename Alloc>
-requires PowerOfTwo<Capacity>
-class SPSCBoundedWaitFreeQueue;
+constexpr int AllocatablePacketsCount = 1024;
 
-// TODO this needs to change
-using ByteArr = std::array<uint8_t, 2048>;
-using ByteArrPtr = std::unique_ptr<ByteArr>;
+using PacketBuffer = uint8_t*;
 
-template <size_t Capacity, typename Alloc = std::allocator<ByteArrPtr>>
-using SPSCQueue = SPSCBoundedWaitFreeQueue<ByteArrPtr, Capacity, Alloc>;
+using ReusableAllocator = ReusableSlabSingletonAllocator<uint8_t, PacketBufferSize, AllocatablePacketsCount>;
 
-template <size_t Capacity, typename Alloc = std::allocator<ByteArrPtr>>
-using MPSCQueue = tcpp::MPSCBoundedQueue<ByteArrPtr, Capacity, Alloc>;
-
+}
