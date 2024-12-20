@@ -43,7 +43,6 @@ void TunBuilder::allocate_tun() {
     if (!name.empty()) std::strncpy(ifr.ifr_name, name.data(), name.size() + 1);
 
     if (ioctl(fd, TUNSETIFF, &ifr) < 0) {
-        close(fd);
         throw std::runtime_error("ioctl(TUNSETIFF)");
     }
 

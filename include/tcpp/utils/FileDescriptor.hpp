@@ -12,7 +12,7 @@ struct FileDescriptor {
     FileDescriptor(const FileDescriptor&) = delete;
     FileDescriptor& operator=(const FileDescriptor&) = delete;
 
-    FileDescriptor(FileDescriptor&& other) noexcept { *this = std::move(other); }
+    FileDescriptor(FileDescriptor&& other) noexcept { this->fd = std::exchange(other.fd, -1); }
     FileDescriptor& operator=(FileDescriptor&& other) noexcept { std::swap(fd, other.fd); return *this; }
 
     FileDescriptor& operator=(int fd_) { (void)~FileDescriptor(); fd = fd_; return *this; }
