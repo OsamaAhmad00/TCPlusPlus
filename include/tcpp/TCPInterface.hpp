@@ -20,8 +20,9 @@ public:
 
     explicit TCPInterface(TunDevice interface)
         : interface(std::move(interface)),
-          listen_thread(&TCPInterface::listener, this),
-          send_thread(&TCPInterface::sender, this)
+          listener_thread(&TCPInterface::listener, this),
+          sender_thread(&TCPInterface::sender, this),
+          handler_thread(&TCPInterface::packets_handler, this)
     { }
 
     // TODO accept the size argument as a template parameter when the map is replaced
@@ -29,7 +30,7 @@ public:
         auto[it, inserted] = port_listeners.emplace(
             std::piecewise_construct,
             std::forward_as_tuple(endpoint),
-            std::forward_as_tuple(endpoint, send_queue, connection_queues, port_listeners)
+            std::forward_as_tuple(endpoint, send_queue, port_listeners)
         );
         assert(inserted);
         return it->second;
@@ -54,25 +55,44 @@ private:
             Port port = tcp.dest_port();
             IpAddress address = ip.dest_addr_n;
             Endpoint endpoint { address, port };
-            if (!port_listeners.contains(endpoint)) {
+            auto listener = port_listeners.find(endpoint);
+            if (listener == port_listeners.end()) {
                 continue;
             }
 
-            const auto id = ip.connection_id();
+            auto id = ip.connection_id();
+            auto connection_it = connections.find(id);
 
-            if (tcp.syn == true) {
-                // TODO Change this...
-                // TODO have the size be customizable
-                connection_queues.create_connection_queue(id);
-                auto it = port_listeners.find(endpoint);
-                assert(it != port_listeners.end());
-                it->second.pending_connections.push(id);
-            }
-
-            // TODO Change this...
-            const auto it = connection_queues.find(id);
-            if (it != connection_queues.end()) {
-                it->second.push(buffer);
+            if (connection_it == connections.end()) {
+                // there is only a single listener (this thread). there can be multiple threads accessing
+                //  the listener, but they can only increment the counter. this means that if the counter
+                //  is > 0, then we can proceed without worrying about other threads decrementing the counter
+                //  and having us stuck in the CAS loop down there.
+                if (tcp.syn && listener->second.acceptable_connections > 0) {
+                    // New connection
+                    // TODO memory order
+                    // TODO insure that this is a valid new connection
+                    auto [new_connection, inserted] = connections.emplace(
+                        std::piecewise_construct,
+                        std::forward_as_tuple(id),
+                        std::forward_as_tuple(id, send_queue)
+                    );
+                    assert(inserted);
+                    received_packets.push(buffer);
+                    // TODO will there ever be a situation in which multiple
+                    //  threads are accessing this value concurrently?
+                    // TODO memory orders
+                    listener->second.acceptable_connections--;
+                    auto& to_return = listener->second.connection_to_return;
+                    assert(to_return == nullptr);
+                    to_return = &new_connection->second;
+                    // TODO Optimal? the listener has to have a very low latency.
+                    to_return.notify_one();
+                } else {
+                    // Not waiting for a new connection, drop the packet.
+                }
+            } else {
+                received_packets.push(buffer);
             }
         }
     }
@@ -93,15 +113,34 @@ private:
         }
     }
 
+    void packets_handler(std::stop_token token) {
+        while (!token.stop_requested()) {
+            // TODO stop spinning?
+            auto packet = received_packets.pop();
+            if (!packet.has_value()) continue;
+            auto& ip = structs::IPv4::from_ptr(packet.value());
+            auto id = ip.connection_id();
+            auto connection_it = connections.find(id);
+            assert(connection_it != connections.end());
+            connection_it->second.process_packet(packet.value());
+            if (connection_it->second.connection_closed) {
+                // TODO erase when actually appropriate
+                connections.erase(id);
+            }
+        }
+    }
+
     TunDevice interface;
-    // TODO have different argument for queue capacity
-    ConnectionQueues<ConnectionBufferSize> connection_queues;
+    // TODO change this to SPMC
+    SPSCBoundedWaitFreeQueue<uint8_t*, ConnectionBufferSize> received_packets;
     // TODO this needs to change
     MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize> send_queue;
     // TODO have different argument for queue capacity
     ConcurrentMap<Endpoint, TCPListener<ConnectionBufferSize>> port_listeners;
-    std::jthread listen_thread;
-    std::jthread send_thread;
+    ConcurrentMap<ConnectionID, TCPConnection<ConnectionBufferSize>> connections;
+    std::jthread listener_thread;
+    std::jthread sender_thread;
+    std::jthread handler_thread;
 };
 
 }

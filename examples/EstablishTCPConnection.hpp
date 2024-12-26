@@ -1,6 +1,7 @@
 #pragma once
 
-#include <deque>
+#include <vector>
+
 #include <tcpp/TCPInterface.hpp>
 #include <tcpp/utils/IPv4.hpp>
 
@@ -15,11 +16,13 @@ void example() {
     auto tcp = tcpp::TCPInterface { (std::move(tun)) };
     auto& listener = tcp.bind({ "10.0.0.5"_nip, 4000 });
     // TODO Remove the hardcoded number
-    std::deque<tcpp::TCPConnection<1 << 20>> connections;
+    std::vector<tcpp::TCPConnection<1 << 20>*> connections;
     int allowed_connections = 5;
     while (allowed_connections--) {
-        listener.accept(connections);
+        auto& connection = listener.accept();
+        connections.push_back(&connection);
     }
+    // TODO close connections;
     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     listener.close();
 }

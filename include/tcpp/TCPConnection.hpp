@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+
 #include <tcpp/structs/IPv4.hpp>
 #include <tcpp/structs/TCP.hpp>
 #include <tcpp/data-structures/MPSCBoundedQueue.hpp>
@@ -147,7 +148,47 @@ class TCPConnection {
         process_syn(ip);
     }
 
-    void process_packet(structs::IPv4& ip) {
+public:
+
+    const ConnectionID id;
+
+private:
+
+    State state = State::New;
+    SendSequenceSpace send { };
+    ReceiveSequenceSpace receive { };
+
+    // TODO have a separate arg for the queue capacity
+    MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize>& send_queue;
+
+    // TODO delete this
+    bool swapped = false;
+
+public:
+
+    // TODO use the state instead
+    bool connection_closed = false;
+
+    TCPConnection(TCPConnection&) = delete;
+    TCPConnection(TCPConnection&&) = delete;
+    TCPConnection& operator=(TCPConnection&) = delete;
+    TCPConnection& operator=(TCPConnection&&) = delete;
+
+    friend auto operator<=>(const TCPConnection& lhs, const TCPConnection& rhs) {
+        return lhs.id <=> rhs.id;
+    }
+
+    explicit TCPConnection(
+        const ConnectionID id,
+        MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize>& send_queue
+    ) : id(id), send_queue(send_queue)
+    { }
+
+    void process_packet(uint8_t* packet) {
+        auto& ip = structs::IPv4::from_ptr(packet);
+
+        swapped = false;
+
         auto& tcp = ip.tcp_payload();
         // TODO perform the actual checks
         if (tcp.ack == true && (tcp.ack_num() < send.nxt || tcp.seq_num() < receive.nxt)) {
@@ -167,58 +208,9 @@ class TCPConnection {
         if (tcp.fin == true) {
             process_fin(ip);
         }
+
+        ReusableAllocator{}.deallocate(packet);
     }
-
-    void handler(std::stop_token token) {
-        ReusableAllocator alloc;
-        while (!token.stop_requested() && !connection_closed) {
-            // TODO stop spinning
-            auto packet = receive_queue.pop();
-            if (packet.has_value()) {
-                swapped = false;
-                process_packet(structs::IPv4::from_ptr(packet.value()));
-                // TODO don't deallocate and don't copy when sending
-                alloc.deallocate(packet.value());
-            }
-        }
-        connection_queues.remove_connection_queue(id);
-    }
-
-    // TODO use the state instead
-    bool connection_closed = false;
-
-    State state = State::New;
-    SendSequenceSpace send { };
-    ReceiveSequenceSpace receive { };
-
-    ConnectionID id;
-    // TODO have a separate arg for the queue capacity
-    ConnectionQueues<ConnectionBufferSize>& connection_queues;
-    SPSCBoundedWaitFreeQueue<PacketBuffer, ConnectionBufferSize>& receive_queue;
-    MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize>& send_queue;
-    std::jthread packet_processor;
-
-    // TODO delete this
-    bool swapped = false;
-
-public:
-
-    TCPConnection(TCPConnection&) = delete;
-    TCPConnection(TCPConnection&&) = delete;
-    TCPConnection& operator=(TCPConnection&) = delete;
-    TCPConnection& operator=(TCPConnection&&) = delete;
-
-    explicit TCPConnection(
-        const ConnectionID id,
-        ConnectionQueues<ConnectionBufferSize>& connection_queues,
-        SPSCBoundedWaitFreeQueue<PacketBuffer, ConnectionBufferSize>& receive_queue,
-        MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize>& send_queue
-    ) : id(id),
-        connection_queues(connection_queues),
-        receive_queue(receive_queue),
-        send_queue(send_queue),
-        packet_processor(&TCPConnection::handler, this)
-    { }
 };
 
 }

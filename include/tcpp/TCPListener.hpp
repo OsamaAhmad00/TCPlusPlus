@@ -1,7 +1,5 @@
 #pragma once
 
-#include <deque>
-
 #include <tcpp/TypeDefs.hpp>
 #include <tcpp/utils/Connections.hpp>
 #include <tcpp/TCPConnection.hpp>
@@ -18,10 +16,9 @@ class TCPListener {
 
     const Endpoint endpoint;
     MPSCBoundedQueue<PacketBuffer, ConnectionQueueCapacity>& send_queue;
-    ConnectionQueues<ConnectionQueueCapacity>& connection_queues;
 
-    // TODO change this
-    SPSCBoundedWaitFreeQueue<ConnectionID, 64> pending_connections;
+    std::atomic<int> acceptable_connections = 0;
+    std::atomic<TCPConnection<ConnectionQueueCapacity>*> connection_to_return;
 
     // TODO specify the size specifically
     ConcurrentMap<Endpoint, TCPListener>& listeners;
@@ -32,26 +29,24 @@ public:
     TCPListener(
         const Endpoint endpoint,
         MPSCBoundedQueue<PacketBuffer, ConnectionQueueCapacity>& send_queue,
-        ConnectionQueues<ConnectionQueueCapacity>& connection_queues,
         ConcurrentMap<Endpoint, TCPListener>& listeners
     ) : endpoint(endpoint),
         send_queue(send_queue),
-        connection_queues(connection_queues),
         listeners(listeners)
     { }
 
     // TODO same size by default?
-    template <size_t ConnectionBufferSize = ConnectionQueueCapacity>
-    void accept(std::deque<TCPConnection<ConnectionBufferSize>>& container) {
+    TCPConnection<ConnectionQueueCapacity>& accept() {
+        acceptable_connections++;  // TODO memory order
         // TODO stop spinning
-        auto id = pending_connections.pop();
-        while (!id.has_value()) {
-            id = pending_connections.pop();
-        }
-        auto& receive_queue = connection_queues[id.value()];
-        container.emplace_back(id.value(), connection_queues, receive_queue, send_queue);
+        // TODO memory orders
+        connection_to_return.wait(nullptr);
+        auto connection = connection_to_return.load();
+        connection_to_return = nullptr;
+        return *connection;
     }
 
+    // TODO delete all connections from the connections map in the interface
     void close() { listeners.erase(endpoint); }
 };
 

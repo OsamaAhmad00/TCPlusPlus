@@ -116,7 +116,7 @@ uint16_t IPv4::total_len() const {
 
 ConnectionID IPv4::connection_id() const {
     auto& tcp = tcp_payload();
-    return { source_addr_n, tcp.source_port(), tcp.dest_port() };
+    return { source_addr_n, dest_addr_n, tcp.source_port(), tcp.dest_port() };
 }
 
 std::string IPv4::info() const {
