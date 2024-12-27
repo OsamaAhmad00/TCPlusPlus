@@ -1,11 +1,12 @@
 #pragma once
 
-#include <map>
 #include <thread>
+#include <functional>
 
 #include <tcpp/TypeDefs.hpp>
 #include <tcpp/TunDevice.hpp>
 #include <tcpp/TCPListener.hpp>
+#include <tcpp/TimersManager.hpp>
 #include <tcpp/utils/Connections.hpp>
 #include <tcpp/data-structures/ConcurrentMap.hpp>
 #include <tcpp/allocators/ReusableSlabAllocator.hpp>
@@ -173,6 +174,8 @@ private:
     // TODO have different argument for queue capacity
     MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize> send_queue;
     SPSCBoundedWaitFreeQueue<uint8_t*, ConnectionBufferSize> received_packets;
+
+    TimersManager<std::function<void()>> timers;  // TODO change std::function
 
     // TODO have different argument for queue capacity
     ConcurrentMap<ConnectionID, TCPConnection<ConnectionBufferSize>> connections;
