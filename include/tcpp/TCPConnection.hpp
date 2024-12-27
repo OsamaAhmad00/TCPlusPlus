@@ -118,7 +118,9 @@ class TCPConnection {
         tcp.ack = true;
         tcp.fin = false;
         send_packet(ip);
+        // TODO change this?
         connection_closed = true;
+        connection_closed.notify_all();
     }
 
     void process_ack(structs::IPv4& ip) {
@@ -166,8 +168,8 @@ private:
 
 public:
 
-    // TODO use the state instead
-    bool connection_closed = false;
+    // TODO delete this?
+    std::atomic<bool> connection_closed = false;
 
     TCPConnection(TCPConnection&) = delete;
     TCPConnection(TCPConnection&&) = delete;
@@ -210,6 +212,15 @@ public:
         }
 
         ReusableAllocator{}.deallocate(packet);
+    }
+
+    void close() {
+        // TODO change this?
+        connection_closed.wait(false);
+    }
+
+    ~TCPConnection() noexcept {
+        close();
     }
 };
 

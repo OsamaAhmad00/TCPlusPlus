@@ -17,6 +17,8 @@ struct FileDescriptor {
 
     FileDescriptor& operator=(int fd_) { (void)~FileDescriptor(); fd = fd_; return *this; }
 
+    void set_without_closing(int fd_) { fd = fd_; }
+
     operator int() const { return fd; }
 
     ~FileDescriptor() { if (fd >= 0) close(fd); }

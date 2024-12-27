@@ -23,6 +23,5 @@ void example() {
         connections.push_back(&connection);
     }
     // TODO close connections;
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
     listener.close();
 }

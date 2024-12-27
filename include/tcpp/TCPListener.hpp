@@ -25,6 +25,9 @@ class TCPListener {
 
 public:
 
+    // TODO delete this
+    std::atomic<bool> under_usage = false;
+
     // TODO make it private
     TCPListener(
         const Endpoint endpoint,
@@ -47,7 +50,15 @@ public:
     }
 
     // TODO delete all connections from the connections map in the interface
-    void close() { listeners.erase(endpoint); }
+    void close() {
+        auto it = listeners.find(endpoint);
+        listeners.erase(it);
+    }
+
+    ~TCPListener() noexcept {
+        // TODO delete this
+        while (under_usage.load()) {}
+    }
 };
 
 };

@@ -20,9 +20,9 @@ public:
 
     explicit TCPInterface(TunDevice interface)
         : interface(std::move(interface)),
-          listener_thread(&TCPInterface::listener, this),
-          sender_thread(&TCPInterface::sender, this),
-          handler_thread(&TCPInterface::packets_handler, this)
+          sender_thread(&TCPInterface::sender, this, stop_source.get_token()),
+          handler_thread(&TCPInterface::packets_handler, this, stop_source.get_token()),
+          listener_thread(&TCPInterface::listener, this, stop_source.get_token())
     { }
 
     // TODO accept the size argument as a template parameter when the map is replaced
@@ -36,6 +36,23 @@ public:
         return it->second;
     }
 
+    ~TCPInterface() noexcept {
+        closing = true;
+        // Before anything, give connections a chance to close. They
+        // might need to send or receive some data before termination
+        connections.set_read_only();  // Nothing is inserted or deleted
+        auto it = connections.begin();
+        auto end = connections.end();
+        while (it != end) {
+            it->second.close();
+            ++it;
+        }
+        // Need to close it before the destruction of the listener thread.
+        // Otherwise, the listener will remain blocked in the `receive` call.
+        interface.close();
+        (void)stop_source.request_stop();
+    }
+
 private:
 
     void listener(std::stop_token token) {
@@ -43,27 +60,39 @@ private:
         while (!token.stop_requested()) {
             auto buffer = allocator.allocate();
             // TODO get rid of latency incurred by copying
-            // TODO if a stop is requested, this call should return. Change blocking somehow.
-            (void)interface.receive({ buffer, PacketBufferSize });
+            auto n = interface.receive({ buffer, PacketBufferSize });
+            if (n <= 0) {
+                // The tun device is closed (or some other problem). No business for me here.
+                break;
+            }
 
             auto& ip = structs::IPv4::from_ptr(buffer);
             if (ip.version != 4 || ip.protocol != structs::IPv4::IPPROTOCOL_TCP) {
                 continue;
             }
 
+            // std::cerr << ip.info() << "\n";
+
+            auto id = ip.connection_id();
+            bool connection_not_established = !connections.contains(id);
+
             auto& tcp = ip.tcp_payload();
             Port port = tcp.dest_port();
             IpAddress address = ip.dest_addr_n;
             Endpoint endpoint { address, port };
-            auto listener = port_listeners.find(endpoint);
-            if (listener == port_listeners.end()) {
+            // TODO delete this
+            auto listener = port_listeners.find_and_perform(endpoint, [](TCPListener<ConnectionBufferSize>& listener) {
+                // Mark for usage so that it doesn't get deleted while we're operating on it.
+                // This is the only thread other than the destructor that uses this variable.
+                listener.under_usage = true;
+            });
+            bool no_listener = listener == port_listeners.end();
+            if (no_listener && connection_not_established) {
                 continue;
             }
 
-            auto id = ip.connection_id();
-            auto connection_it = connections.find(id);
-
-            if (connection_it == connections.end()) {
+            // TODO memory order
+            if (connection_not_established && !closing) {
                 // there is only a single listener (this thread). there can be multiple threads accessing
                 //  the listener, but they can only increment the counter. this means that if the counter
                 //  is > 0, then we can proceed without worrying about other threads decrementing the counter
@@ -94,6 +123,11 @@ private:
             } else {
                 received_packets.push(buffer);
             }
+
+            if (!no_listener) {
+                // If we've set this, unset it
+                listener->second.under_usage = false;
+            }
         }
     }
 
@@ -102,10 +136,7 @@ private:
         while (!token.stop_requested()) {
             // TODO don't spin
             auto packet = send_queue.pop();
-            while (!packet.has_value()) {
-                if (token.stop_requested()) return;
-                packet = send_queue.pop();
-            }
+            if (!packet.has_value()) continue;
             auto buffer = packet.value();
             auto& ip = structs::IPv4::from_ptr(buffer);
             (void)interface.send({ buffer, ip.total_len() });
@@ -121,26 +152,38 @@ private:
             auto& ip = structs::IPv4::from_ptr(packet.value());
             auto id = ip.connection_id();
             auto connection_it = connections.find(id);
-            assert(connection_it != connections.end());
+            if (connection_it == connections.end()) {
+                // TODO change this
+                // Connection not found. We must be in the process of destruction now.
+                break;
+            }
             connection_it->second.process_packet(packet.value());
             if (connection_it->second.connection_closed) {
                 // TODO erase when actually appropriate
-                connections.erase(id);
+                connections.erase(connection_it);
+                if (!closing) {
+                    assert(!connections.contains(id));
+                }
             }
         }
     }
 
     TunDevice interface;
-    // TODO change this to SPMC
-    SPSCBoundedWaitFreeQueue<uint8_t*, ConnectionBufferSize> received_packets;
-    // TODO this needs to change
-    MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize> send_queue;
+
     // TODO have different argument for queue capacity
-    ConcurrentMap<Endpoint, TCPListener<ConnectionBufferSize>> port_listeners;
+    MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize> send_queue;
+    SPSCBoundedWaitFreeQueue<uint8_t*, ConnectionBufferSize> received_packets;
+
+    // TODO have different argument for queue capacity
     ConcurrentMap<ConnectionID, TCPConnection<ConnectionBufferSize>> connections;
-    std::jthread listener_thread;
+    ConcurrentMap<Endpoint, TCPListener<ConnectionBufferSize>> port_listeners;
+
+    std::atomic<bool> closing = false;
+
+    std::stop_source stop_source;
     std::jthread sender_thread;
     std::jthread handler_thread;
+    std::jthread listener_thread;
 };
 
 }

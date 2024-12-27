@@ -34,12 +34,17 @@ public:
         return set.find(key);
     }
 
+    auto clear() {
+        std::lock_guard lock(m);
+        return set.clear();
+    }
+
     auto end() {
         std::lock_guard lock(m);
         return set.end();
     }
 
-    ~ConcurrentSet() {
+    ~ConcurrentSet() noexcept {
         std::lock_guard lock(m);
         set.clear();
     }
