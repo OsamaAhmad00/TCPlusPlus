@@ -38,6 +38,11 @@ public:
         std::lock_guard lock(m);
         return set.end();
     }
+
+    ~ConcurrentSet() {
+        std::lock_guard lock(m);
+        set.clear();
+    }
 };
 
 }

@@ -38,6 +38,11 @@ public:
         std::lock_guard lock(m);
         return map.end();
     }
+
+    ~ConcurrentMap() {
+        std::lock_guard lock(m);
+        map.clear();
+    }
 };
 
 }
