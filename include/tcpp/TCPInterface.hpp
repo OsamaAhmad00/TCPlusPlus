@@ -160,11 +160,11 @@ private:
             }
             connection_it->second.process_packet(packet.value());
             if (connection_it->second.connection_closed) {
-                // TODO erase when actually appropriate
-                connections.erase(connection_it);
-                if (!closing) {
-                    assert(!connections.contains(id));
-                }
+                // TODO erase when appropriate
+                // connections.erase(connection_it);
+                // if (!closing) {
+                    // assert(!connections.contains(id));
+                // }
             }
         }
     }

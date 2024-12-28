@@ -65,7 +65,7 @@ class TCPConnection {
 
         WaitingForDataAck,  // TODO Delete this
         WaitingForFinAck,   // TODO Delete this
-        Closed,             // TODO Delete this
+        FinAcked,           // TODO Delete this
     };
 
     void send_packet(structs::IPv4& ip) {
@@ -139,7 +139,12 @@ class TCPConnection {
             tcp.fin = fin;
             state = State::WaitingForFinAck;
         } else if (state == State::WaitingForFinAck) {
-            state = State::Closed;
+            state = State::FinAcked;
+        } else if (state == State::FinAcked) {
+            tcp.psh = false;
+            ip.set_tcp_payload("");
+            // Send ack
+            send_packet(ip);
         }
     }
 
@@ -153,23 +158,6 @@ class TCPConnection {
 public:
 
     const ConnectionID id;
-
-private:
-
-    State state = State::New;
-    SendSequenceSpace send { };
-    ReceiveSequenceSpace receive { };
-
-    // TODO have a separate arg for the queue capacity
-    MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize>& send_queue;
-
-    // TODO delete this
-    bool swapped = false;
-
-public:
-
-    // TODO delete this?
-    std::atomic<bool> connection_closed = false;
 
     TCPConnection(TCPConnection&) = delete;
     TCPConnection(TCPConnection&&) = delete;
@@ -201,7 +189,16 @@ public:
             return process_new(ip);
         }
 
-        receive.nxt += tcp.syn | tcp.fin;
+        // TODO use receive and send windows
+        auto offset = ip.payload_offset() + tcp.payload_offset();
+        auto payload_len = ip.total_len() - offset;
+        auto payload = &ip.extract<uint8_t>(offset);
+        for (size_t i = 0; i < payload_len; i++) {
+            auto pushed = receive_buffer.push(payload[i]);
+            assert(pushed);
+        }
+
+        receive.nxt += payload_len + (tcp.syn | tcp.fin);
 
         if (tcp.ack == true) {
             process_ack(ip);
@@ -214,6 +211,18 @@ public:
         ReusableAllocator{}.deallocate(packet);
     }
 
+    [[nodiscard]] size_t read(std::span<uint8_t> buffer) {
+        // TODO change this
+        size_t bytes_read = 0;
+        for (uint8_t& b : buffer) {
+            auto val = receive_buffer.pop();
+            if (!val.has_value()) break;
+            b = val.value();
+            bytes_read++;
+        }
+        return bytes_read;
+    }
+
     void close() {
         // TODO change this?
         connection_closed.wait(false);
@@ -222,6 +231,27 @@ public:
     ~TCPConnection() noexcept {
         close();
     }
+
+private:
+
+    State state = State::New;
+    SendSequenceSpace send { };
+    ReceiveSequenceSpace receive { };
+
+    // TODO have a separate arg for the queue capacity
+    MPSCBoundedQueue<PacketBuffer, ConnectionBufferSize>& send_queue;
+
+    // TODO delete this
+    bool swapped = false;
+
+    // TODO change this
+    static constexpr std::size_t BufferSize =  1 << 16;
+    SPSCBoundedWaitFreeQueue<uint8_t, BufferSize> receive_buffer;
+
+public:
+
+    // TODO delete this?
+    std::atomic<bool> connection_closed = false;
 };
 
 }

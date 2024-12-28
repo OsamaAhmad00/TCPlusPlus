@@ -1,4 +1,4 @@
-#include "examples/EstablishTCPConnection.hpp"
+#include "examples/SimpleTCPEchoServer.hpp"
 
 [[noreturn]] int main() {
     example();
