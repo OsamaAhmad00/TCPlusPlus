@@ -1,4 +1,4 @@
-#include "examples/SimpleTCPEchoServer.hpp"
+#include "examples/OneWayTCPChatRoom.hpp"
 
 [[noreturn]] int main() {
     example();

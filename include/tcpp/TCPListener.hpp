@@ -41,7 +41,6 @@ public:
     // TODO same size by default?
     TCPConnection<ConnectionQueueCapacity>& accept() {
         acceptable_connections++;  // TODO memory order
-        // TODO stop spinning
         // TODO memory orders
         connection_to_return.wait(nullptr);
         auto connection = connection_to_return.load();
