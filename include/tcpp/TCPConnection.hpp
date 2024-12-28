@@ -140,7 +140,7 @@ class TCPConnection {
             state = State::WaitingForFinAck;
         } else if (state == State::WaitingForFinAck) {
             state = State::FinAcked;
-        } else if (state == State::FinAcked) {
+        } else if (state == State::FinAcked && !tcp.fin) {
             tcp.psh = false;
             ip.set_tcp_payload("");
             // Send ack
